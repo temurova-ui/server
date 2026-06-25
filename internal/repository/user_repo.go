@@ -44,3 +44,39 @@ func (r *UserRepository)GetByEmail(ctx context.Context, email string)(*models.Us
 	}
 	return u, nil
 }
+
+func (r *UserRepository)GetByID(ctx context.Context, id int)(*models.User, error){
+	query := `
+	SELECT 
+		id, 
+		name, 
+		email, 
+		role, 
+		created_at 
+	FROM users 
+	WHERE id = $1`
+	u := &models.User{}
+
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&u.ID, 
+		&u.Name, 
+		&u.Email,
+		&u.Role,
+		&u.CreatedAt)
+	if err != nil{
+		return nil, err
+	}
+	return u, nil
+}
+
+func (r *UserRepository)Update (ctx context.Context, id int, name, email string)error{
+	query := `UPDATE users SET name = $1 ,email = $2 WHERE id = $3`
+	_, err := r.db.Exec(ctx, query, name, email, id)
+	return err
+}
+
+func (r *UserRepository)Delete (ctx context.Context, id int)error{
+	query := `DELETE FROM users WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, id)
+	return err
+}

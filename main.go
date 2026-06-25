@@ -2,41 +2,62 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"net/http"
-	"time"
 
 	"myservice/handlers"
 	"myservice/internal/repository"
 	"myservice/internal/service"
-	"myservice/pkg/db"
+	"myservice/middlware"
 	"myservice/pkg/logger"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func main(){
+func main() {
 	logSvc := logger.NewLogger()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	dsn := "postgres://postgres:pass@localhost:5432/mydb?sslmode=disable"
-	pool, err := db.InitDB(ctx, dsn)
-	if err != nil{
-		logSvc.Error("Critical database failed: %v", err)
-		return
+	pool, err := pgxpool.New(ctx, fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s",
+		"localhost", 5432, "postgres", "1234", "mydb"))
+	if err != nil {
+		log.Fatal("Failed to connect to database", err)
 	}
-	defer pool.Close()
 
 	userRepo := repository.NewUserRepository(pool)
+	orderRepo := repository.NewOrderRepository(pool) 
+
 	userSvc := service.NewUserService(userRepo)
-	UserHandler := handlers.NewUserHandler(userSvc, logSvc)
+	orderSvc := service.NewOrderService(orderRepo)   
+
+	userHandler := handlers.NewUserHandler(userSvc, logSvc)
+	orderHandler := handlers.NewOrderHandler(orderSvc, logSvc) 
 
 	mux := http.NewServeMux()
+	
+	mux.HandleFunc("/auth/register", userHandler.Register)
+	mux.HandleFunc("/auth/login", userHandler.Login)
 
-	mux.HandleFunc("/auth/register", UserHandler.Register)
-	mux.HandleFunc("/auth/login", UserHandler.Login)
+	mux.Handle("/users/me", middlware.Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			userHandler.GetMe(w, r)
+		case http.MethodPut:
+			userHandler.UpdateMe(w, r)
+		case http.MethodDelete:
+			userHandler.DeleteMe(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+
+	mux.Handle("/orders", middlware.Auth(http.HandlerFunc(orderHandler.Create)))
 
 	logSvc.Info("Application successfully started and listening on :8080")
-	if err := http.ListenAndServe(":8080", mux); err != nil{
+	if err := http.ListenAndServe(":8080", mux); err != nil {
 		logSvc.Error("HTTP Server stopped: %v", err)
 	}
 }

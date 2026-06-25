@@ -30,3 +30,30 @@ func (r *LoginRequest)Validate()error{
 type AuthResponse struct{
 	Token string `json:"token"`
 }
+
+type UpdateProfileRequest struct{
+	Name string `json:"name"`
+	Email string `json:"email"`
+}
+
+func (r *UpdateProfileRequest)Validate()error{
+	if r.Name == "" || r.Email == ""{
+		return errors.New("validation error: name and email cannot be empty")
+	}
+	return nil
+}
+
+type CreateOrderRequest struct {
+	ItemName string `json:"item_name"`
+	Quantity int    `json:"quantity"`
+}
+
+func (r *CreateOrderRequest) Validate() error {
+	if r.ItemName == "" {
+		return errors.New("validation error: item_name is required")
+	}
+	if r.Quantity <= 0 {
+		return errors.New("validation error: quantity must be greater than 0")
+	}
+	return nil
+}
