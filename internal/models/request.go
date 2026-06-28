@@ -1,6 +1,8 @@
 package models
 
-import "errors"
+import (
+	"errors"
+)
 
 type RegisterRequest struct{
 	Name string `json:"name"`
@@ -43,6 +45,18 @@ func (r *UpdateProfileRequest)Validate()error{
 	return nil
 }
 
+type ChangePassword struct{
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
+func (c *ChangePassword)Validate()error{
+	if len(c.OldPassword) == 0 || len(c.NewPassword) == 0{
+		return errors.New("validation error: name and password cannot be empty")
+	}
+	return nil
+}
+
 type CreateOrderRequest struct {
 	ItemName string `json:"item_name"`
 	Quantity int    `json:"quantity"`
@@ -55,5 +69,18 @@ func (r *CreateOrderRequest) Validate() error {
 	if r.Quantity <= 0 {
 		return errors.New("validation error: quantity must be greater than 0")
 	}
+	return nil
+}
+
+type CancelOrder struct{
+	Status string `json:"status"`
+	UserID int `json:"userID"`
+}
+
+func (r *CancelOrder) Validate()error{
+	if len(r.Status) == 0{
+		return errors.New("validation error: status is empty")
+	}
+	
 	return nil
 }

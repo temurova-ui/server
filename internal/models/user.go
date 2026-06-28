@@ -10,3 +10,8 @@ type User struct{
 	Role string `json:"role"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+type UserAndOrder struct{
+	User User `json:"user"`
+	Orders []Order `json:"order"`
+}

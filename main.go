@@ -38,8 +38,14 @@ func main() {
 
 	mux := http.NewServeMux()
 	
-	mux.HandleFunc("/auth/register", userHandler.Register)
-	mux.HandleFunc("/auth/login", userHandler.Login)
+	mux.HandleFunc("POST /auth/register", userHandler.Register)
+	mux.HandleFunc("POST /auth/login", userHandler.Login)
+	
+	mux.Handle("PUT /users/change-password", middlware.Auth(http.HandlerFunc(userHandler.ChangePassword)))
+	mux.Handle("GET /users/profile", middlware.Auth(http.HandlerFunc(userHandler.GetMe)))
+	mux.Handle("PATCH /orders/{id}/cancel", middlware.Auth(http.HandlerFunc(orderHandler.CancelOrder)))
+	mux.Handle("GET /orders/my", middlware.Auth(http.HandlerFunc(orderHandler.GetMyOrders)))
+	mux.Handle("POST /orders", middlware.Auth(http.HandlerFunc(orderHandler.Create)))
 
 	mux.Handle("/users/me", middlware.Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -53,8 +59,6 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})))
-
-	mux.Handle("/orders", middlware.Auth(http.HandlerFunc(orderHandler.Create)))
 
 	logSvc.Info("Application successfully started and listening on :8080")
 	if err := http.ListenAndServe(":8080", mux); err != nil {

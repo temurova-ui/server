@@ -10,3 +10,8 @@ type Order struct {
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+type Status struct{
+	New string `json:"new"`
+	Paid string `json:"paid"`
+}

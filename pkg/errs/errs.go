@@ -10,6 +10,7 @@ var(
 	// ErrUserNotFound = errors.New("user  not found")
 	ErrEmailConflict = errors.New("email already registered")
 	ErrInternalServer = errors.New("internal server error")
+	ErrValidate = errors.New("validation error")
 )
 
 func NewInvalidInputError(msg string) error{

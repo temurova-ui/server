@@ -6,11 +6,19 @@ import(
 	"myservice/internal/models"
 )
 
+type UserRepo interface{
+	Create (ctx context.Context, u *models.User)error
+	GetByEmail(ctx context.Context, email string)(*models.User, error)
+	GetByID(ctx context.Context, id int)(*models.User, error)
+	Update (ctx context.Context, id int, name, email string)error
+	UpdatePassword(ctx context.Context, id int, password string)error
+	Delete (ctx context.Context, id int)error
+}
 type UserRepository struct{
 	db *pgxpool.Pool
 }
 
-func NewUserRepository(db *pgxpool.Pool)*UserRepository{
+func NewUserRepository(db *pgxpool.Pool)UserRepo{
 	return &UserRepository{db: db}
 }
 
@@ -51,6 +59,7 @@ func (r *UserRepository)GetByID(ctx context.Context, id int)(*models.User, error
 		id, 
 		name, 
 		email, 
+		password_hash,
 		role, 
 		created_at 
 	FROM users 
@@ -61,6 +70,7 @@ func (r *UserRepository)GetByID(ctx context.Context, id int)(*models.User, error
 		&u.ID, 
 		&u.Name, 
 		&u.Email,
+		&u.PasswordHash,
 		&u.Role,
 		&u.CreatedAt)
 	if err != nil{
@@ -72,6 +82,12 @@ func (r *UserRepository)GetByID(ctx context.Context, id int)(*models.User, error
 func (r *UserRepository)Update (ctx context.Context, id int, name, email string)error{
 	query := `UPDATE users SET name = $1 ,email = $2 WHERE id = $3`
 	_, err := r.db.Exec(ctx, query, name, email, id)
+	return err
+}
+
+func (r *UserRepository)UpdatePassword(ctx context.Context, id int, password string)error{
+	query := `UPDATE users SET password_hash = $2 WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, id, password)
 	return err
 }
 

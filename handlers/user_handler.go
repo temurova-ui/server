@@ -14,11 +14,11 @@ import (
 )
 
 type UserHandler struct{
-	svc *service.UserService
+	svc service.UserService
 	log *logger.Logger
 }
 
-func NewUserHandler(svc *service.UserService, log *logger.Logger) *UserHandler{
+func NewUserHandler(svc service.UserService, log *logger.Logger) *UserHandler{
 	return &UserHandler{svc: svc, log: log}
 }
 
@@ -77,7 +77,7 @@ func (h *UserHandler)Login(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	
-	w.Header().Set("Context-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(models.AuthResponse{Token: token})
 }
 
@@ -161,4 +161,38 @@ func (h *UserHandler)DeleteMe(w http.ResponseWriter, r *http.Request){
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "account successfully deleted"})
 
+}
+
+func (h *UserHandler)ChangePassword(w http.ResponseWriter, r *http.Request){
+	if r.Method != http.MethodPut{
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, ok := r.Context().Value(internalCtx.UserIDKey).(int)
+	if !ok {
+		h.log.Error("User ID missing from context in ChangePassword")
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req models.ChangePassword
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil{
+		http.Error(w, "invalid json format", http.StatusBadRequest)
+		return
+	}
+
+	if err := req.Validate(); err != nil{
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.ChangePassword(r.Context(), userID, req); err != nil{
+		h.log.Error("Failed to change password: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "password successfully changed"})
 }
