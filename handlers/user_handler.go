@@ -3,14 +3,14 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	// "fmt"
-	// "log"
+	"log"
 	internalCtx "myservice/internal/context"
 	"myservice/internal/models"
 	"myservice/internal/service"
 	"myservice/pkg/errs"
 	"myservice/pkg/logger"
 	"net/http"
+	"strings"
 )
 
 type UserHandler struct{
@@ -39,7 +39,7 @@ func (h *UserHandler)Register (w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	token, err := h.svc.Register(r.Context(), req)
+	err := h.svc.Register(r.Context(), req)
 	if err != nil {
 		if errors.Is(err, errs.ErrEmailConflict) {
 			http.Error(w, "email already registered", http.StatusConflict)
@@ -52,7 +52,6 @@ func (h *UserHandler)Register (w http.ResponseWriter, r *http.Request){
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(models.AuthResponse{Token: token})
 }
 
 func (h *UserHandler)Login(w http.ResponseWriter, r *http.Request){
@@ -71,14 +70,14 @@ func (h *UserHandler)Login(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	
-	token, err := h.svc.Login(r.Context(), req)
+	response, err := h.svc.Login(r.Context(), req)
 	if err != nil{
 		http.Error(w, "unauthorized: invalid credentials", http.StatusUnauthorized)
 		return
 	}
 	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(models.AuthResponse{Token: token})
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *UserHandler)GetMe(w http.ResponseWriter, r *http.Request){
@@ -195,4 +194,72 @@ func (h *UserHandler)ChangePassword(w http.ResponseWriter, r *http.Request){
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "password successfully changed"})
+}
+
+func (h *UserHandler)Verify(w http.ResponseWriter, r *http.Request){
+	var req models.VerifyRequest
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err = h.svc.Verify(r.Context(), req); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+
+func (h *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+	var req models.RefreshRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	response, err := h.svc.Refresh(r.Context(), req)
+	if err != nil {
+		if strings.Contains(err.Error(), "validation error") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if strings.Contains(err.Error(), "unauthorized") {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err = json.NewEncoder(w).Encode(response); err != nil {
+		log.Println(err)
+	}
+}
+
+func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var req models.LogoutRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err = h.svc.Logout(r.Context(), req)
+	if err != nil {
+		if strings.Contains(err.Error(), "validation error") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"message": "successfully logged out"}`))
 }
